@@ -27,12 +27,6 @@ javascript:(function(){var s=document.createElement('script');s.src='https://cdn
 * Delete the website address in the **URL** box, and **Paste** the code you copied in Step 1.
 * Click **Save**.
 
-## How to Use
-1. Log into [Claude.ai](https://claude.ai/).
-2. Click the `Claude Export` bookmarklet in your Bookmarks Bar.
-3. A menu will appear. Choose whether you want to export your Current Project or All Projects, and choose between a ZIP file or a JSON file.
-4. Wait for the extraction to complete. Your file will automatically download when it finishes!
-
 *(Note: Because this script loads dynamically from GitHub, you will automatically get changes in the future without having to reinstall the bookmarklet)*
 
 ---
@@ -40,3 +34,11 @@ javascript:(function(){var s=document.createElement('script');s.src='https://cdn
 ## Manual Installation
 
 Make a new bookmark and paste the code of [export-claude.js] (https://raw.githubusercontent.com/ShaneIsley/export-claude/main/export-claude.js) into the URL box. Now click the bookmark when on the claude site to run an export.
+
+---
+
+## How to Use
+1. Log into [Claude.ai](https://claude.ai/).
+2. Click the `Claude Export` bookmarklet in your Bookmarks Bar.
+3. A menu will appear. Choose whether you want to export your Current Project or All Projects, and choose between a ZIP file or a JSON file.
+4. Wait for the extraction to complete. Your file will automatically download when it finishes!
