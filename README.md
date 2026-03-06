@@ -12,6 +12,8 @@ A bookmarklet to extract and download your Claude data. You can download individ
 
 There are two ways to install: one will run the latest code dynamically, the other copies the current code into a static bookmark(let). Go with what is most comfortable. 
 
+## Dynamic Installation
+
 **1. Copy the tiny code block below:**
 ```javascript
 javascript:(function(){var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/gh/ShaneIsley/export-claude/export-claude.js';document.body.appendChild(s);})();
