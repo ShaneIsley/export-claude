@@ -35,7 +35,7 @@ javascript:(function(){var s=document.createElement('script');s.src='https://cdn
 
 ## Manual Installation
 
-Make a new bookmark and paste the code of [export-claude.js] (https://raw.githubusercontent.com/ShaneIsley/export-claude/main/export-claude.js) into the URL box. Now click the bookmark when on the claude site to run an export.
+Make a new bookmark and paste the code of [export-claude.js](https://raw.githubusercontent.com/ShaneIsley/export-claude/main/export-claude.js) into the URL box. Now click the bookmark when on the claude site to run an export.
 
 ---
 
