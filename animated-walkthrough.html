@@ -1,0 +1,1240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>export-claude: Animated Walkthrough</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --bg2: #1a1a2e;
+    --bg3: #1e293b;
+    --accent: #818cf8;
+    --accent2: #a78bfa;
+    --accent3: #38bdf8;
+    --green: #4ade80;
+    --red: #f87171;
+    --yellow: #fbbf24;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --border: #1e293b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; overflow-x: hidden; }
+
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(15,23,42,0.95); backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 4px; padding: 0 24px; height: 52px;
+  }
+  nav .logo { font-size: 13px; font-weight: 700; color: var(--accent); margin-right: 16px; white-space: nowrap; }
+  nav a { font-size: 12px; color: var(--muted); text-decoration: none; padding: 6px 10px; border-radius: 6px; transition: all .2s; white-space: nowrap; }
+  nav a:hover, nav a.active { color: var(--text); background: var(--bg3); }
+
+  .section { min-height: 100vh; padding: 60px 40px; max-width: 1100px; margin: 0 auto; }
+  .section-title { font-size: 28px; font-weight: 700; margin-bottom: 6px; }
+  .section-subtitle { font-size: 14px; color: var(--muted); margin-bottom: 40px; }
+
+  .stage {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 16px; padding: 32px; min-height: 340px;
+    position: relative; overflow: hidden; margin-bottom: 24px;
+  }
+
+  .controls {
+    display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start;
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 12px; padding: 20px 24px;
+  }
+  .ctrl { display: flex; flex-direction: column; gap: 6px; min-width: 180px; }
+  .ctrl label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+  .ctrl .val { font-size: 13px; color: var(--accent); font-weight: 600; }
+  input[type=range] { width: 100%; accent-color: var(--accent); cursor: pointer; }
+  .btn {
+    padding: 8px 18px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer;
+    border: none; transition: all .15s;
+  }
+  .btn-primary { background: linear-gradient(135deg, #6366f1, #818cf8); color: #fff; }
+  .btn-secondary { background: var(--bg3); color: var(--muted); border: 1px solid var(--border); }
+  .btn:hover { opacity: .85; transform: translateY(-1px); }
+  .btn-row { display: flex; gap: 8px; align-items: center; margin-top: 4px; }
+
+  /* ─── SECTION 1: Pipeline ─── */
+  .pipeline { display: flex; flex-direction: column; gap: 0; align-items: center; }
+  .pipe-row { display: flex; align-items: center; gap: 0; }
+  .pipe-node {
+    background: var(--bg3); border: 2px solid var(--border);
+    border-radius: 10px; padding: 10px 16px; font-size: 12px; font-weight: 600;
+    text-align: center; min-width: 140px; transition: all .4s;
+    position: relative; opacity: .35;
+  }
+  .pipe-node.active { opacity: 1; border-color: var(--accent); box-shadow: 0 0 18px rgba(129,140,248,.35); color: var(--accent); }
+  .pipe-node.done { opacity: 1; border-color: var(--green); color: var(--green); }
+  .pipe-node .sub { font-size: 10px; color: var(--muted); font-weight: 400; margin-top: 3px; }
+  .pipe-arrow { width: 28px; text-align: center; color: var(--muted); font-size: 16px; flex-shrink: 0; }
+  .pipe-down { width: 2px; height: 20px; background: var(--border); margin: 0 auto; }
+  .pipe-branch { display: flex; gap: 12px; align-items: flex-start; }
+  .pipe-branch-col { display: flex; flex-direction: column; align-items: center; gap: 0; }
+
+  /* ─── SECTION 2: Pagination ─── */
+  .pag-stage { display: flex; flex-direction: column; gap: 16px; }
+  .pag-info { display: flex; gap: 24px; flex-wrap: wrap; }
+  .pag-stat { background: var(--bg3); border-radius: 8px; padding: 10px 16px; font-size: 12px; }
+  .pag-stat .n { font-size: 22px; font-weight: 700; color: var(--accent); }
+  .pag-stat .lbl { color: var(--muted); }
+  .pag-grid { display: flex; flex-wrap: wrap; gap: 4px; min-height: 120px; }
+  .pag-item {
+    width: 28px; height: 28px; border-radius: 5px; font-size: 9px;
+    display: flex; align-items: center; justify-content: center; font-weight: 600;
+    background: var(--bg3); border: 1px solid var(--border); color: var(--muted);
+    transition: all .3s; transform: scale(0);
+  }
+  .pag-item.fetched { transform: scale(1); }
+  .pag-item.page0 { background: rgba(99,102,241,.25); border-color: #6366f1; color: #818cf8; }
+  .pag-item.page1 { background: rgba(167,139,250,.25); border-color: #a78bfa; color: #c4b5fd; }
+  .pag-item.page2 { background: rgba(56,189,248,.25); border-color: #38bdf8; color: #7dd3fc; }
+  .pag-item.page3 { background: rgba(74,222,128,.25); border-color: #4ade80; color: #86efac; }
+  .pag-item.page4 { background: rgba(251,191,36,.25); border-color: #fbbf24; color: #fde68a; }
+  .pag-log { font-size: 11px; font-family: monospace; color: var(--muted); background: var(--bg); padding: 10px 14px; border-radius: 8px; max-height: 80px; overflow-y: auto; }
+  .pag-log .fetch { color: var(--accent3); }
+  .pag-log .got { color: var(--green); }
+  .pag-log .done { color: var(--yellow); }
+
+  /* ─── SECTION 3: Rate Limiting Timeline ─── */
+  .tl-wrap { overflow-x: auto; }
+  .tl-canvas { position: relative; height: 280px; min-width: 600px; }
+  .tl-axis { position: absolute; bottom: 40px; left: 0; right: 0; height: 2px; background: var(--border); }
+  .tl-label-x { position: absolute; bottom: 20px; font-size: 10px; color: var(--muted); transform: translateX(-50%); }
+  .tl-call {
+    position: absolute; border-radius: 6px; cursor: default;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 600; overflow: hidden; white-space: nowrap;
+    transition: opacity .3s;
+  }
+  .tl-call.type-page { background: rgba(99,102,241,.4); border: 1px solid #6366f1; color: #c7d2fe; }
+  .tl-call.type-chat { background: rgba(167,139,250,.4); border: 1px solid #a78bfa; color: #ddd6fe; }
+  .tl-call.type-proj { background: rgba(56,189,248,.4); border: 1px solid #38bdf8; color: #bae6fd; }
+  .tl-gap { position: absolute; background: rgba(248,113,113,.12); border-radius: 4px; font-size: 9px; color: var(--red); display: flex; align-items: center; justify-content: center; }
+  .tl-row-label { position: absolute; left: 0; font-size: 11px; color: var(--muted); }
+  .tl-time-total { font-size: 13px; color: var(--yellow); font-weight: 600; }
+  .tl-legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 12px; }
+  .tl-legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
+  .tl-legend-dot { width: 12px; height: 12px; border-radius: 3px; }
+
+  /* ─── SECTION 4: Orphan Filtering ─── */
+  .venn-stage { display: flex; gap: 32px; align-items: flex-start; flex-wrap: wrap; }
+  .venn-col { flex: 1; min-width: 220px; }
+  .venn-col h4 { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 12px; }
+  .chat-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;
+    margin: 3px; border: 1px solid; transition: all .4s;
+  }
+  .chat-chip.proj { background: rgba(99,102,241,.2); border-color: #6366f1; color: #818cf8; }
+  .chat-chip.orphan { background: rgba(74,222,128,.2); border-color: #4ade80; color: #4ade80; }
+  .chat-chip.filtered { opacity: .25; text-decoration: line-through; }
+  .chat-chip.highlight { box-shadow: 0 0 12px currentColor; }
+  .venn-arrow { display: flex; align-items: center; padding-top: 60px; font-size: 28px; color: var(--muted); flex-shrink: 0; }
+  .filter-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: rgba(248,113,113,.15); border: 1px solid #f87171;
+    color: #f87171; border-radius: 6px; padding: 4px 10px; font-size: 11px; font-weight: 600;
+    margin-bottom: 10px;
+  }
+
+  /* ─── SECTION 5: File Dedup ─── */
+  .dedup-stage { display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap; }
+  .dedup-col { flex: 1; min-width: 200px; }
+  .dedup-col h4 { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; margin-bottom: 12px; }
+  .file-row {
+    display: flex; align-items: center; gap: 8px; padding: 7px 10px;
+    border-radius: 8px; font-size: 12px; margin-bottom: 4px;
+    border: 1px solid var(--border); background: var(--bg3);
+    transition: all .4s;
+  }
+  .file-row .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .file-row .fname { flex: 1; font-family: monospace; }
+  .file-row .fkind { font-size: 10px; color: var(--muted); }
+  .file-row.doc { border-color: #6366f1; }
+  .file-row.blob { border-color: var(--border); }
+  .file-row.overlap-doc { border-color: var(--yellow); background: rgba(251,191,36,.1); }
+  .file-row.overlap-blob { border-color: var(--red); opacity: .4; }
+  .file-row.winner { border-color: var(--green); background: rgba(74,222,128,.1); }
+  .dedup-plus { font-size: 24px; color: var(--muted); display: flex; align-items: center; padding-top: 50px; }
+  .dedup-result { flex: 1; min-width: 200px; }
+
+  /* ─── SECTION 6: ZIP Tree ─── */
+  .zip-tree { font-family: monospace; font-size: 13px; line-height: 1.8; }
+  .zip-entry { opacity: 0; transform: translateX(-10px); transition: all .3s; }
+  .zip-entry.visible { opacity: 1; transform: translateX(0); }
+  .zip-dir { color: var(--accent); font-weight: 600; }
+  .zip-file { color: var(--text); }
+  .zip-file.readme { color: var(--accent3); }
+  .zip-file.chat { color: #a78bfa; }
+  .zip-file.artifact { color: var(--green); }
+  .zip-file.knowledge { color: var(--yellow); }
+  .tree-indent { display: inline-block; }
+  .zip-size { font-size: 11px; color: var(--muted); margin-left: 8px; }
+
+  /* ─── SECTION 7: Progress Math ─── */
+  .prog-canvas { position: relative; height: 200px; }
+  .prog-track { position: absolute; left: 60px; right: 20px; bottom: 40px; height: 8px; background: var(--bg3); border-radius: 4px; overflow: hidden; }
+  .prog-fill { height: 100%; background: linear-gradient(90deg, #818cf8, #a78bfa); border-radius: 4px; transition: width .1s; }
+  .prog-dot { position: absolute; width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 2px solid var(--accent); top: -3px; transition: left .1s; transform: translateX(-50%); }
+  .prog-yaxis { position: absolute; left: 0; bottom: 36px; top: 0; width: 56px; display: flex; flex-direction: column; justify-content: space-between; font-size: 10px; color: var(--muted); text-align: right; padding-right: 8px; }
+  .prog-grid { position: absolute; left: 60px; right: 20px; bottom: 40px; top: 0; }
+  .prog-gridline { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--border); font-size: 10px; }
+  .prog-formula { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; font-family: monospace; font-size: 13px; margin-bottom: 20px; }
+  .prog-formula .kw { color: var(--accent); }
+  .prog-formula .num { color: var(--yellow); }
+  .prog-formula .val { color: var(--green); font-weight: 700; }
+  .prog-step-dots { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 12px; }
+  .prog-step-dot { width: 20px; height: 20px; border-radius: 4px; background: var(--bg3); border: 1px solid var(--border); font-size: 8px; display: flex; align-items: center; justify-content: center; transition: all .3s; color: var(--muted); }
+  .prog-step-dot.active { background: rgba(129,140,248,.3); border-color: var(--accent); color: var(--accent); }
+  .prog-step-dot.plateau { background: rgba(251,191,36,.2); border-color: var(--yellow); color: var(--yellow); }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--bg3); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="logo">📦 export-claude</span>
+  <a href="#pipeline" class="active">Pipeline</a>
+  <a href="#pagination">Pagination</a>
+  <a href="#ratelimit">Rate Limiting</a>
+  <a href="#orphans">Orphan Filter</a>
+  <a href="#dedup">File Dedup</a>
+  <a href="#zip">ZIP Builder</a>
+  <a href="#progress">Progress Bar</a>
+</nav>
+
+<!-- ════════════════════════════════════════════════════════ SECTION 1 -->
+<div class="section" id="pipeline">
+  <div class="section-title">Full Export Pipeline</div>
+  <div class="section-subtitle">Step-by-step execution when the bookmarklet runs</div>
+
+  <div class="stage" id="pipelineStage" style="min-height:420px;">
+    <div class="pipeline" id="pipelineViz"></div>
+  </div>
+
+  <div class="controls">
+    <div class="ctrl">
+      <label>Scope</label>
+      <select id="pipeScope" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:12px;">
+        <option value="current">Current Project</option>
+        <option value="all">All Projects</option>
+      </select>
+    </div>
+    <div class="ctrl">
+      <label>Format</label>
+      <select id="pipeFmt" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:12px;">
+        <option value="json">JSON</option>
+        <option value="zip">ZIP</option>
+      </select>
+    </div>
+    <div class="ctrl" style="justify-content:flex-end;">
+      <label>&nbsp;</label>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="runPipeline()">▶ Run</button>
+        <button class="btn btn-secondary" onclick="resetPipeline()">↺ Reset</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ SECTION 2 -->
+<div class="section" id="pagination">
+  <div class="section-title">Pagination Strategy</div>
+  <div class="section-subtitle">How paginatedFetch accumulates all items across multiple API pages</div>
+
+  <div class="stage">
+    <div class="pag-stage">
+      <div class="pag-info">
+        <div class="pag-stat"><div class="n" id="pagFetched">0</div><div class="lbl">items fetched</div></div>
+        <div class="pag-stat"><div class="n" id="pagPages">0</div><div class="lbl">pages</div></div>
+        <div class="pag-stat"><div class="n" id="pagCalls">0</div><div class="lbl">API calls</div></div>
+        <div class="pag-stat" style="flex:1;min-width:200px;">
+          <div id="pagStatus" style="font-size:12px;color:var(--muted);margin-top:4px;">Ready</div>
+        </div>
+      </div>
+      <div class="pag-grid" id="pagGrid"></div>
+      <div class="pag-log" id="pagLog"></div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="ctrl">
+      <label>PAGE_SIZE <span class="val" id="pagSizeVal">50</span></label>
+      <input type="range" id="pagSize" min="5" max="100" value="50" step="5"
+             oninput="document.getElementById('pagSizeVal').textContent=this.value">
+    </div>
+    <div class="ctrl">
+      <label>Total Items <span class="val" id="pagTotalVal">130</span></label>
+      <input type="range" id="pagTotal" min="10" max="300" value="130" step="10"
+             oninput="document.getElementById('pagTotalVal').textContent=this.value">
+    </div>
+    <div class="ctrl">
+      <label>API Response Shape</label>
+      <select id="pagShape" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:12px;">
+        <option value="paginated">{ data: [], pagination: {} }</option>
+        <option value="array">Plain array []</option>
+      </select>
+    </div>
+    <div class="ctrl" style="justify-content:flex-end;">
+      <label>&nbsp;</label>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="runPagination()">▶ Fetch</button>
+        <button class="btn btn-secondary" onclick="resetPagination()">↺ Reset</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ SECTION 3 -->
+<div class="section" id="ratelimit">
+  <div class="section-title">Rate-Limited Sequential Fetching</div>
+  <div class="section-subtitle">fetchFullChats fires one API call at a time with configurable delays to avoid rate limiting</div>
+
+  <div class="stage" style="min-height:300px;">
+    <div id="tlTotal" class="tl-time-total" style="margin-bottom:16px;">Total time: — ms</div>
+    <div class="tl-wrap">
+      <div class="tl-canvas" id="tlCanvas"></div>
+    </div>
+    <div class="tl-legend">
+      <div class="tl-legend-item"><div class="tl-legend-dot" style="background:rgba(99,102,241,.5);border:1px solid #6366f1"></div>Pagination API call</div>
+      <div class="tl-legend-item"><div class="tl-legend-dot" style="background:rgba(167,139,250,.5);border:1px solid #a78bfa"></div>Chat fetch call</div>
+      <div class="tl-legend-item"><div class="tl-legend-dot" style="background:rgba(248,113,113,.15);border:1px dashed #f87171"></div>Delay (sleep)</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="ctrl">
+      <label>Number of Chats <span class="val" id="tlChatsVal">6</span></label>
+      <input type="range" id="tlChats" min="1" max="20" value="6"
+             oninput="document.getElementById('tlChatsVal').textContent=this.value;drawTimeline()">
+    </div>
+    <div class="ctrl">
+      <label>CHAT_DELAY_MS <span class="val" id="tlChatDelayVal">750</span> ms</label>
+      <input type="range" id="tlChatDelay" min="0" max="2000" value="750" step="50"
+             oninput="document.getElementById('tlChatDelayVal').textContent=this.value;drawTimeline()">
+    </div>
+    <div class="ctrl">
+      <label>Page Delay <span class="val" id="tlPageDelayVal">80</span> ms</label>
+      <input type="range" id="tlPageDelay" min="0" max="500" value="80" step="10"
+             oninput="document.getElementById('tlPageDelayVal').textContent=this.value;drawTimeline()">
+    </div>
+    <div class="ctrl">
+      <label>Pages per List <span class="val" id="tlPagesVal">2</span></label>
+      <input type="range" id="tlPages" min="1" max="6" value="2"
+             oninput="document.getElementById('tlPagesVal').textContent=this.value;drawTimeline()">
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ SECTION 4 -->
+<div class="section" id="orphans">
+  <div class="section-title">Orphan Chat Filtering</div>
+  <div class="section-subtitle">The /chat_conversations endpoint returns ALL chats. Project chats must be subtracted to find true orphans.</div>
+
+  <div class="stage" style="min-height:300px;">
+    <div class="venn-stage" id="vennStage">
+      <div class="venn-col">
+        <h4>Project Chats (collected)</h4>
+        <div id="vennProj"></div>
+      </div>
+      <div class="venn-arrow">→</div>
+      <div class="venn-col">
+        <h4>All Account Chats <span style="color:var(--muted);font-weight:400">/chat_conversations</span></h4>
+        <div class="filter-badge" id="filterBadge" style="display:none">⊖ <span id="filterCount">0</span> filtered (already in projects)</div>
+        <div id="vennAll"></div>
+      </div>
+      <div class="venn-arrow" id="vennArrow2" style="opacity:0">→</div>
+      <div class="venn-col" id="vennOrphanCol" style="opacity:0">
+        <h4>True Orphans</h4>
+        <div id="vennOrphans"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="ctrl">
+      <label>Project Chats <span class="val" id="vennProjVal">8</span></label>
+      <input type="range" id="vennProj2" min="2" max="20" value="8"
+             oninput="document.getElementById('vennProjVal').textContent=this.value;buildVenn()">
+    </div>
+    <div class="ctrl">
+      <label>Extra Orphan Chats <span class="val" id="vennOrphanVal">5</span></label>
+      <input type="range" id="vennOrphan2" min="0" max="15" value="5"
+             oninput="document.getElementById('vennOrphanVal').textContent=this.value;buildVenn()">
+    </div>
+    <div class="ctrl">
+      <label>&nbsp;</label>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="animateVenn()">▶ Filter</button>
+        <button class="btn btn-secondary" onclick="buildVenn()">↺ Reset</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ SECTION 5 -->
+<div class="section" id="dedup">
+  <div class="section-title">File Deduplication</div>
+  <div class="section-subtitle">extractProjectFiles fetches /docs and /files in parallel, then merges — preferring doc versions (they have content)</div>
+
+  <div class="stage">
+    <div class="dedup-stage" id="dedupStage">
+      <div class="dedup-col">
+        <h4>📄 /docs — text files with content</h4>
+        <div id="ddDocs"></div>
+      </div>
+      <div class="dedup-plus">+</div>
+      <div class="dedup-col">
+        <h4>🗄 /files — blobs, metadata only</h4>
+        <div id="ddBlobs"></div>
+      </div>
+      <div style="display:flex;align-items:center;padding-top:50px;font-size:24px;color:var(--muted);">=</div>
+      <div class="dedup-result">
+        <h4>✓ Merged Result</h4>
+        <div id="ddResult"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="ctrl">
+      <label>Doc-only files <span class="val" id="ddDocOnlyVal">4</span></label>
+      <input type="range" id="ddDocOnly" min="0" max="8" value="4"
+             oninput="document.getElementById('ddDocOnlyVal').textContent=this.value;buildDedup()">
+    </div>
+    <div class="ctrl">
+      <label>Blob-only files <span class="val" id="ddBlobOnlyVal">3</span></label>
+      <input type="range" id="ddBlobOnly" min="0" max="8" value="3"
+             oninput="document.getElementById('ddBlobOnlyVal').textContent=this.value;buildDedup()">
+    </div>
+    <div class="ctrl">
+      <label>Overlapping files <span class="val" id="ddOverlapVal">2</span></label>
+      <input type="range" id="ddOverlap" min="0" max="6" value="2"
+             oninput="document.getElementById('ddOverlapVal').textContent=this.value;buildDedup()">
+    </div>
+    <div class="ctrl">
+      <label>&nbsp;</label>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="animateDedup()">▶ Merge</button>
+        <button class="btn btn-secondary" onclick="buildDedup()">↺ Reset</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ SECTION 6 -->
+<div class="section" id="zip">
+  <div class="section-title">ZIP Directory Structure</div>
+  <div class="section-subtitle">buildZip assembles the JSZip archive — watch the tree grow as files are added</div>
+
+  <div class="stage">
+    <div class="zip-tree" id="zipTree"></div>
+  </div>
+
+  <div class="controls">
+    <div class="ctrl">
+      <label>Projects <span class="val" id="zipProjVal">2</span></label>
+      <input type="range" id="zipProj" min="1" max="5" value="2"
+             oninput="document.getElementById('zipProjVal').textContent=this.value">
+    </div>
+    <div class="ctrl">
+      <label>Chats per Project <span class="val" id="zipChatsVal">3</span></label>
+      <input type="range" id="zipChats" min="1" max="8" value="3"
+             oninput="document.getElementById('zipChatsVal').textContent=this.value">
+    </div>
+    <div class="ctrl">
+      <label>Artifacts per Chat <span class="val" id="zipArtsVal">2</span></label>
+      <input type="range" id="zipArts" min="0" max="5" value="2"
+             oninput="document.getElementById('zipArtsVal').textContent=this.value">
+    </div>
+    <div class="ctrl">
+      <label>Knowledge Files <span class="val" id="zipFilesVal">2</span></label>
+      <input type="range" id="zipFiles" min="0" max="5" value="2"
+             oninput="document.getElementById('zipFilesVal').textContent=this.value">
+    </div>
+    <div class="ctrl">
+      <label>Orphan Chats <span class="val" id="zipOrphanVal">2</span></label>
+      <input type="range" id="zipOrphan" min="0" max="5" value="2"
+             oninput="document.getElementById('zipOrphanVal').textContent=this.value">
+    </div>
+    <div class="ctrl">
+      <label>&nbsp;</label>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="runZip()">▶ Build ZIP</button>
+        <button class="btn btn-secondary" onclick="resetZip()">↺ Reset</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ SECTION 7 -->
+<div class="section" id="progress">
+  <div class="section-title">Progress Bar Math</div>
+  <div class="section-subtitle">The onProgress callback maps steps to percentages: Math.min(10 + step × 3, 90)</div>
+
+  <div class="stage" style="min-height:280px;">
+    <div class="prog-formula">
+      pct = <span class="kw">Math</span>.<span class="kw">min</span>(<span class="num">10</span> + step × <span class="num" id="progMultVal">3</span>, <span class="num">90</span>)
+      &nbsp;&nbsp;→&nbsp;&nbsp; step <span id="progStepShow">0</span> → <span class="val" id="progPctShow">10</span>%
+    </div>
+    <div class="prog-canvas" id="progCanvas">
+      <div class="prog-yaxis">
+        <span>90%</span><span>70%</span><span>50%</span><span>30%</span><span>10%</span>
+      </div>
+      <div class="prog-grid" id="progGrid"></div>
+      <div class="prog-track" id="progTrack">
+        <div class="prog-fill" id="progFill" style="width:11.1%"></div>
+        <div class="prog-dot" id="progDot" style="left:11.1%"></div>
+      </div>
+    </div>
+    <div class="prog-step-dots" id="progDots"></div>
+  </div>
+
+  <div class="controls">
+    <div class="ctrl">
+      <label>Multiplier (per step) <span class="val" id="progMultSliderVal">3</span></label>
+      <input type="range" id="progMult" min="1" max="10" value="3"
+             oninput="updateProgMult(this.value)">
+    </div>
+    <div class="ctrl">
+      <label>Current Step <span class="val" id="progStepVal">0</span></label>
+      <input type="range" id="progStep" min="0" max="40" value="0"
+             oninput="updateProgStep(this.value)">
+    </div>
+    <div class="ctrl">
+      <label>&nbsp;</label>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="animateProgress()">▶ Animate</button>
+        <button class="btn btn-secondary" onclick="resetProgress()">↺ Reset</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// SECTION 1: PIPELINE
+// ═══════════════════════════════════════════════════════════════
+
+const PIPELINE_STEPS = {
+  current_json: [
+    { id: 'start',   label: 'Bookmarklet fires', sub: 'IIFE executes' },
+    { id: 'projid',  label: 'getProjectId()', sub: 'URL regex match' },
+    { id: 'dialog',  label: 'showDialog()', sub: 'User picks scope + format' },
+    { id: 'orgid',   label: 'getOrgId()', sub: 'Cookie / network log' },
+    { id: 'api',     label: 'new ApiClient()', sub: '/api/organizations/{id}' },
+    { id: 'meta',    label: 'extractProjectMeta()', sub: 'GET /projects/{id}' },
+    { id: 'chatlist',label: 'extractProjectChatList()', sub: 'paginatedFetch' },
+    { id: 'chats',   label: 'fetchFullChats()', sub: 'Sequential + 750ms delays' },
+    { id: 'files',   label: 'extractProjectFiles()', sub: '/docs + /files parallel' },
+    { id: 'wrap',    label: 'wrapExport()', sub: 'Add envelope + stats' },
+    { id: 'json',    label: 'downloadJson()', sub: 'JSON.stringify → Blob → <a>' },
+    { id: 'done',    label: '✓ Export complete', sub: 'ProgressUI.done()' },
+  ],
+  all_json: [
+    { id: 'start',   label: 'Bookmarklet fires', sub: 'IIFE executes' },
+    { id: 'projid',  label: 'getProjectId()', sub: 'null — not on project page' },
+    { id: 'dialog',  label: 'showDialog()', sub: 'User picks scope + format' },
+    { id: 'orgid',   label: 'getOrgId()', sub: 'Cookie / network log' },
+    { id: 'api',     label: 'new ApiClient()', sub: '/api/organizations/{id}' },
+    { id: 'projlist',label: 'extractProjectList()', sub: 'paginatedFetch /projects_v2' },
+    { id: 'loop',    label: 'nextProject() loop', sub: 'Each project + 1000ms delay' },
+    { id: 'orphlist',label: 'extractOrphanChatList()', sub: '/chat_conversations' },
+    { id: 'filter',  label: 'Filter true orphans', sub: 'Subtract project chat IDs' },
+    { id: 'wrap',    label: 'wrapExport()', sub: 'Add envelope + stats' },
+    { id: 'json',    label: 'downloadJson()', sub: 'JSON.stringify → Blob → <a>' },
+    { id: 'done',    label: '✓ Export complete', sub: 'ProgressUI.done()' },
+  ],
+  current_zip: [
+    { id: 'start',   label: 'Bookmarklet fires', sub: 'IIFE executes' },
+    { id: 'projid',  label: 'getProjectId()', sub: 'URL regex match' },
+    { id: 'dialog',  label: 'showDialog()', sub: 'User picks scope + format' },
+    { id: 'jszip',   label: 'loadScript(JSZIP_CDN)', sub: 'Inject <script> tag' },
+    { id: 'orgid',   label: 'getOrgId()', sub: 'Cookie / network log' },
+    { id: 'api',     label: 'new ApiClient()', sub: '/api/organizations/{id}' },
+    { id: 'meta',    label: 'extractProjectMeta()', sub: 'GET /projects/{id}' },
+    { id: 'chatlist',label: 'extractProjectChatList()', sub: 'paginatedFetch' },
+    { id: 'chats',   label: 'fetchFullChats()', sub: 'Sequential + 750ms delays' },
+    { id: 'files',   label: 'extractProjectFiles()', sub: '/docs + /files parallel' },
+    { id: 'wrap',    label: 'wrapExport()', sub: 'Add envelope + stats' },
+    { id: 'build',   label: 'buildZip()', sub: 'JSZip + Markdown + Artifacts' },
+    { id: 'done',    label: '✓ Export complete', sub: 'ProgressUI.done()' },
+  ],
+  all_zip: [
+    { id: 'start',   label: 'Bookmarklet fires', sub: 'IIFE executes' },
+    { id: 'projid',  label: 'getProjectId()', sub: 'null — not on project page' },
+    { id: 'dialog',  label: 'showDialog()', sub: 'User picks scope + format' },
+    { id: 'jszip',   label: 'loadScript(JSZIP_CDN)', sub: 'Inject <script> tag' },
+    { id: 'orgid',   label: 'getOrgId()', sub: 'Cookie / network log' },
+    { id: 'api',     label: 'new ApiClient()', sub: '/api/organizations/{id}' },
+    { id: 'projlist',label: 'extractProjectList()', sub: 'paginatedFetch /projects_v2' },
+    { id: 'loop',    label: 'nextProject() loop', sub: 'Each project + 1000ms delay' },
+    { id: 'orphlist',label: 'extractOrphanChatList()', sub: '/chat_conversations' },
+    { id: 'filter',  label: 'Filter true orphans', sub: 'Subtract project chat IDs' },
+    { id: 'wrap',    label: 'wrapExport()', sub: 'Add envelope + stats' },
+    { id: 'build',   label: 'buildZip()', sub: 'JSZip + Markdown + Artifacts' },
+    { id: 'done',    label: '✓ Export complete', sub: 'ProgressUI.done()' },
+  ]
+};
+
+let pipeTimer = null, pipeStep = -1, pipeSteps = [];
+
+function getPipeKey() {
+  const scope = document.getElementById('pipeScope').value;
+  const fmt = document.getElementById('pipeFmt').value;
+  return `${scope}_${fmt}`;
+}
+
+function buildPipelineViz() {
+  const key = getPipeKey();
+  pipeSteps = PIPELINE_STEPS[key];
+  const viz = document.getElementById('pipelineViz');
+  viz.innerHTML = '';
+  pipeSteps.forEach((s, i) => {
+    if (i > 0) {
+      const d = document.createElement('div');
+      d.className = 'pipe-down';
+      viz.appendChild(d);
+    }
+    const node = document.createElement('div');
+    node.className = 'pipe-node';
+    node.id = `pnode_${i}`;
+    node.innerHTML = `<div>${s.label}</div><div class="sub">${s.sub}</div>`;
+    viz.appendChild(node);
+  });
+}
+
+function resetPipeline() {
+  clearTimeout(pipeTimer);
+  pipeStep = -1;
+  buildPipelineViz();
+}
+
+function runPipeline() {
+  resetPipeline();
+  let i = 0;
+  function step() {
+    if (i > 0) {
+      const prev = document.getElementById(`pnode_${i-1}`);
+      if (prev) { prev.classList.remove('active'); prev.classList.add('done'); }
+    }
+    if (i >= pipeSteps.length) return;
+    const node = document.getElementById(`pnode_${i}`);
+    if (node) node.classList.add('active');
+    i++;
+    pipeTimer = setTimeout(step, 500);
+  }
+  step();
+}
+
+document.getElementById('pipeScope').onchange = resetPipeline;
+document.getElementById('pipeFmt').onchange = resetPipeline;
+buildPipelineViz();
+
+// ═══════════════════════════════════════════════════════════════
+// SECTION 2: PAGINATION
+// ═══════════════════════════════════════════════════════════════
+
+let pagRunning = false, pagTimer = null;
+
+function resetPagination() {
+  clearTimeout(pagTimer);
+  pagRunning = false;
+  document.getElementById('pagGrid').innerHTML = '';
+  document.getElementById('pagLog').innerHTML = '';
+  document.getElementById('pagFetched').textContent = '0';
+  document.getElementById('pagPages').textContent = '0';
+  document.getElementById('pagCalls').textContent = '0';
+  document.getElementById('pagStatus').textContent = 'Ready';
+}
+
+function pagLog(msg, cls) {
+  const log = document.getElementById('pagLog');
+  const line = document.createElement('div');
+  line.className = cls || '';
+  line.textContent = msg;
+  log.appendChild(line);
+  log.scrollTop = log.scrollHeight;
+}
+
+function runPagination() {
+  resetPagination();
+  const pageSize = parseInt(document.getElementById('pagSize').value);
+  const total = parseInt(document.getElementById('pagTotal').value);
+  const shape = document.getElementById('pagShape').value;
+  const grid = document.getElementById('pagGrid');
+
+  // pre-create all item divs
+  for (let i = 0; i < total; i++) {
+    const d = document.createElement('div');
+    d.className = 'pag-item';
+    d.textContent = i + 1;
+    d.id = `pitem_${i}`;
+    grid.appendChild(d);
+  }
+
+  let offset = 0, pageNum = 0, fetched = 0, calls = 0;
+
+  function fetchPage() {
+    if (offset >= total) {
+      document.getElementById('pagStatus').textContent = '✓ All items fetched';
+      pagLog(`→ done. Total: ${fetched} items in ${pageNum} pages`, 'done');
+      return;
+    }
+    calls++;
+    document.getElementById('pagCalls').textContent = calls;
+    const limit = Math.min(pageSize, total - offset);
+    const hasMore = shape === 'array' ? (limit >= pageSize) : (offset + limit < total);
+    document.getElementById('pagStatus').textContent = `Fetching page ${pageNum+1}: offset=${offset}, limit=${pageSize}…`;
+    pagLog(`fetch: offset=${offset} limit=${pageSize}`, 'fetch');
+
+    pagTimer = setTimeout(() => {
+      const colorClass = `page${pageNum % 5}`;
+      for (let i = offset; i < offset + limit; i++) {
+        const el = document.getElementById(`pitem_${i}`);
+        if (el) {
+          el.classList.add('fetched', colorClass);
+        }
+      }
+      fetched += limit;
+      pageNum++;
+      document.getElementById('pagFetched').textContent = fetched;
+      document.getElementById('pagPages').textContent = pageNum;
+      pagLog(`  got ${limit} items. has_more=${hasMore}`, 'got');
+
+      if (hasMore) {
+        offset += pageSize;
+        pagLog(`  sleeping 80ms...`, '');
+        pagTimer = setTimeout(fetchPage, 600);
+      } else {
+        document.getElementById('pagStatus').textContent = '✓ All items fetched';
+        pagLog(`→ done. Total: ${fetched} items in ${pageNum} pages`, 'done');
+      }
+    }, 500);
+  }
+
+  fetchPage();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SECTION 3: RATE LIMITING TIMELINE
+// ═══════════════════════════════════════════════════════════════
+
+function drawTimeline() {
+  const numChats = parseInt(document.getElementById('tlChats').value);
+  const chatDelay = parseInt(document.getElementById('tlChatDelay').value);
+  const pageDelay = parseInt(document.getElementById('tlPageDelay').value);
+  const numPages = parseInt(document.getElementById('tlPages').value);
+
+  const canvas = document.getElementById('tlCanvas');
+  canvas.innerHTML = '';
+
+  const CALL_W_MS = 120; // simulated API call duration
+  const PAD_LEFT = 80;
+  const ROW_H = 32;
+  const ROW_GAP = 14;
+  const SCALE = 0.12; // px per ms
+
+  // Build event sequence
+  // Row 0: list fetch (pages)
+  // Row 1+: chat fetches
+  const rows = [];
+  const events = [];
+
+  // List fetch pages
+  let t = 0;
+  for (let p = 0; p < numPages; p++) {
+    events.push({ t, dur: CALL_W_MS, type: 'page', row: 0, label: `page ${p+1}` });
+    t += CALL_W_MS;
+    if (p < numPages - 1) {
+      events.push({ t, dur: pageDelay, type: 'gap', row: 0, label: `${pageDelay}ms` });
+      t += pageDelay;
+    }
+  }
+  t += 40; // small gap between list fetch and chat fetches
+
+  // Chat fetches
+  for (let c = 0; c < numChats; c++) {
+    events.push({ t, dur: CALL_W_MS, type: 'chat', row: 1, label: `chat ${c+1}` });
+    t += CALL_W_MS;
+    if (c < numChats - 1) {
+      events.push({ t, dur: chatDelay, type: 'gap', row: 1, label: chatDelay > 0 ? `${chatDelay}ms` : '' });
+      t += chatDelay;
+    }
+  }
+
+  const totalMs = t;
+  const totalPx = Math.max(600, totalMs * SCALE + PAD_LEFT + 20);
+  canvas.style.width = totalPx + 'px';
+  canvas.style.height = (ROW_H * 2 + ROW_GAP * 3 + 60) + 'px';
+
+  const rowLabels = ['List fetch', 'Chat fetches'];
+  rowLabels.forEach((lbl, i) => {
+    const el = document.createElement('div');
+    el.className = 'tl-row-label';
+    el.style.top = (ROW_GAP + i * (ROW_H + ROW_GAP + 4)) + 'px';
+    el.textContent = lbl;
+    canvas.appendChild(el);
+  });
+
+  // Axis
+  const axis = document.createElement('div');
+  axis.className = 'tl-axis';
+  axis.style.bottom = '34px';
+  canvas.appendChild(axis);
+
+  // Time markers
+  const markerStep = totalMs > 5000 ? 1000 : totalMs > 2000 ? 500 : 200;
+  for (let ms = 0; ms <= totalMs; ms += markerStep) {
+    const lbl = document.createElement('div');
+    lbl.className = 'tl-label-x';
+    lbl.style.left = (PAD_LEFT + ms * SCALE) + 'px';
+    lbl.textContent = ms >= 1000 ? (ms/1000).toFixed(1)+'s' : ms+'ms';
+    canvas.appendChild(lbl);
+  }
+
+  events.forEach(ev => {
+    const el = document.createElement('div');
+    const top = ROW_GAP + ev.row * (ROW_H + ROW_GAP + 4);
+    const left = PAD_LEFT + ev.t * SCALE;
+    const width = Math.max(ev.dur * SCALE, 2);
+
+    el.style.left = left + 'px';
+    el.style.top = top + 'px';
+    el.style.width = width + 'px';
+    el.style.height = ROW_H + 'px';
+
+    if (ev.type === 'gap') {
+      el.className = 'tl-gap';
+      if (ev.dur > 0 && width > 30) el.textContent = ev.label;
+    } else {
+      el.className = `tl-call type-${ev.type}`;
+      if (width > 45) el.textContent = ev.label;
+    }
+    canvas.appendChild(el);
+  });
+
+  document.getElementById('tlTotal').textContent =
+    `Total time: ${totalMs}ms (${(totalMs/1000).toFixed(2)}s) — ${numChats} chats, ${numPages} list page${numPages>1?'s':''}`;
+}
+
+drawTimeline();
+
+// ═══════════════════════════════════════════════════════════════
+// SECTION 4: ORPHAN FILTERING
+// ═══════════════════════════════════════════════════════════════
+
+const PROJECT_COLORS = ['#6366f1','#a78bfa','#38bdf8','#4ade80','#fbbf24','#f87171'];
+
+function makeChip(label, cls, extra='') {
+  return `<span class="chat-chip ${cls}" ${extra}>${label}</span>`;
+}
+
+function buildVenn() {
+  const projCount = parseInt(document.getElementById('vennProj2').value);
+  const orphCount = parseInt(document.getElementById('vennOrphan2').value);
+
+  const projEl = document.getElementById('vennProj');
+  const allEl = document.getElementById('vennAll');
+  const orphEl = document.getElementById('vennOrphans');
+
+  projEl.innerHTML = '';
+  allEl.innerHTML = '';
+  orphEl.innerHTML = '';
+
+  document.getElementById('filterBadge').style.display = 'none';
+  document.getElementById('vennArrow2').style.opacity = '0';
+  document.getElementById('vennOrphanCol').style.opacity = '0';
+
+  // Project chats: split across 2-3 projects
+  const numProj = Math.min(3, Math.ceil(projCount / 3));
+  let chatIdx = 1;
+  for (let p = 0; p < numProj; p++) {
+    const perProj = Math.ceil(projCount / numProj);
+    const color = PROJECT_COLORS[p];
+    for (let c = 0; c < perProj && chatIdx <= projCount; c++, chatIdx++) {
+      const chip = document.createElement('span');
+      chip.className = 'chat-chip proj';
+      chip.style.borderColor = color;
+      chip.style.color = color;
+      chip.style.background = color + '22';
+      chip.id = `proj_chat_${chatIdx}`;
+      chip.textContent = `P${p+1} Chat ${c+1}`;
+      projEl.appendChild(chip);
+    }
+  }
+
+  // All account chats = project chats + orphans (shuffled)
+  const allChats = [];
+  for (let i = 1; i <= projCount; i++) allChats.push({ id: i, isOrphan: false, label: `Chat ${i}` });
+  for (let i = 1; i <= orphCount; i++) allChats.push({ id: projCount + i, isOrphan: true, label: `Orphan ${i}` });
+  // shuffle
+  for (let i = allChats.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [allChats[i], allChats[j]] = [allChats[j], allChats[i]];
+  }
+  allChats.forEach(c => {
+    const chip = document.createElement('span');
+    chip.className = `chat-chip ${c.isOrphan ? 'orphan' : 'proj'}`;
+    chip.id = `all_chat_${c.id}`;
+    chip.dataset.isOrphan = c.isOrphan;
+    chip.textContent = c.label;
+    if (!c.isOrphan) {
+      chip.style.borderColor = '#6366f1';
+      chip.style.color = '#818cf8';
+      chip.style.background = '#6366f122';
+    }
+    allEl.appendChild(chip);
+  });
+}
+
+async function animateVenn() {
+  buildVenn();
+  await sleep(400);
+
+  // Phase 1: highlight project chats in the "all" list
+  const allChips = document.querySelectorAll('#vennAll .chat-chip');
+  const projChips = document.querySelectorAll('#vennAll .chat-chip.proj');
+
+  for (const chip of projChips) {
+    chip.classList.add('highlight');
+    await sleep(80);
+  }
+  await sleep(500);
+
+  // Phase 2: filter (grey out) project chats
+  const filterBadge = document.getElementById('filterBadge');
+  filterBadge.style.display = 'inline-flex';
+  document.getElementById('filterCount').textContent = projChips.length;
+
+  for (const chip of projChips) {
+    chip.classList.remove('highlight');
+    chip.classList.add('filtered');
+    await sleep(60);
+  }
+  await sleep(400);
+
+  // Phase 3: show result column
+  document.getElementById('vennArrow2').style.opacity = '1';
+  document.getElementById('vennOrphanCol').style.opacity = '1';
+
+  const orphEl = document.getElementById('vennOrphans');
+  const orphChips = document.querySelectorAll('#vennAll .chat-chip.orphan');
+  for (const chip of orphChips) {
+    const c = document.createElement('span');
+    c.className = 'chat-chip orphan';
+    c.textContent = chip.textContent;
+    orphEl.appendChild(c);
+    await sleep(80);
+  }
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+buildVenn();
+
+// ═══════════════════════════════════════════════════════════════
+// SECTION 5: FILE DEDUP
+// ═══════════════════════════════════════════════════════════════
+
+function buildDedup() {
+  const docOnly = parseInt(document.getElementById('ddDocOnly').value);
+  const blobOnly = parseInt(document.getElementById('ddBlobOnly').value);
+  const overlap = parseInt(document.getElementById('ddOverlap').value);
+
+  const docsEl = document.getElementById('ddDocs');
+  const blobsEl = document.getElementById('ddBlobs');
+  const resultEl = document.getElementById('ddResult');
+  docsEl.innerHTML = '';
+  blobsEl.innerHTML = '';
+  resultEl.innerHTML = '';
+
+  const exts = ['.py', '.js', '.ts', '.md', '.json', '.txt', '.csv', '.sql'];
+  const names = ['analysis', 'notes', 'data', 'config', 'schema', 'report', 'script', 'template'];
+
+  function fileRow(name, kind, cls, extraCls='') {
+    const r = document.createElement('div');
+    r.className = `file-row ${cls} ${extraCls}`;
+    const dotColor = cls === 'doc' ? '#6366f1' : cls === 'blob' ? '#64748b' : cls === 'overlap-doc' ? '#fbbf24' : '#f87171';
+    r.innerHTML = `<div class="dot" style="background:${dotColor}"></div>
+      <div class="fname">${name}</div>
+      <div class="fkind">${kind}</div>`;
+    return r;
+  }
+
+  // overlap files
+  for (let i = 0; i < overlap; i++) {
+    const name = names[i % names.length] + exts[i % exts.length];
+    docsEl.appendChild(fileRow(name, 'doc + content', 'overlap-doc', ''));
+    blobsEl.appendChild(fileRow(name, 'blob + metadata', 'overlap-blob', ''));
+  }
+  // doc-only
+  for (let i = 0; i < docOnly; i++) {
+    const name = names[(overlap + i) % names.length] + '-doc' + exts[i % exts.length];
+    docsEl.appendChild(fileRow(name, 'doc + content', 'doc'));
+  }
+  // blob-only
+  for (let i = 0; i < blobOnly; i++) {
+    const name = names[(overlap + docOnly + i) % names.length] + '-img' + (i%2===0?'.png':'.pdf');
+    blobsEl.appendChild(fileRow(name, 'blob only', 'blob'));
+  }
+}
+
+async function animateDedup() {
+  buildDedup();
+  const docOnly = parseInt(document.getElementById('ddDocOnly').value);
+  const blobOnly = parseInt(document.getElementById('ddBlobOnly').value);
+  const overlap = parseInt(document.getElementById('ddOverlap').value);
+  const exts = ['.py', '.js', '.ts', '.md', '.json', '.txt', '.csv', '.sql'];
+  const names = ['analysis', 'notes', 'data', 'config', 'schema', 'report', 'script', 'template'];
+
+  await sleep(300);
+  const resultEl = document.getElementById('ddResult');
+  resultEl.innerHTML = '';
+
+  // Overlap files: doc wins
+  for (let i = 0; i < overlap; i++) {
+    await sleep(200);
+    const name = names[i % names.length] + exts[i % exts.length];
+    const r = document.createElement('div');
+    r.className = 'file-row winner';
+    r.innerHTML = `<div class="dot" style="background:#4ade80"></div>
+      <div class="fname">${name}</div><div class="fkind">doc wins ✓</div>`;
+    resultEl.appendChild(r);
+  }
+  // Doc-only
+  for (let i = 0; i < docOnly; i++) {
+    await sleep(150);
+    const name = names[(overlap + i) % names.length] + '-doc' + exts[i % exts.length];
+    const r = document.createElement('div');
+    r.className = 'file-row doc';
+    r.innerHTML = `<div class="dot" style="background:#6366f1"></div>
+      <div class="fname">${name}</div><div class="fkind">doc ✓</div>`;
+    resultEl.appendChild(r);
+  }
+  // Blob-only
+  for (let i = 0; i < blobOnly; i++) {
+    await sleep(150);
+    const name = names[(overlap + docOnly + i) % names.length] + '-img' + (i%2===0?'.png':'.pdf');
+    const r = document.createElement('div');
+    r.className = 'file-row blob';
+    r.innerHTML = `<div class="dot" style="background:#64748b"></div>
+      <div class="fname">${name}</div><div class="fkind">blob ✓ (unique)</div>`;
+    resultEl.appendChild(r);
+  }
+}
+
+buildDedup();
+
+// ═══════════════════════════════════════════════════════════════
+// SECTION 6: ZIP TREE
+// ═══════════════════════════════════════════════════════════════
+
+let zipTimer = null;
+const projNames = ['My-Research', 'Code-Review', 'Writing-Project', 'Data-Analysis', 'Design-Work'];
+const chatNames = ['Intro-Chat', 'Deep-Dive', 'Follow-up', 'Summary', 'Review', 'Final-Draft', 'Questions', 'Wrap-up'];
+const artifactNames = [['script.py','helpers.js'],['query.sql','schema.json'],['styles.css','component.tsx'],['analysis.py','plot.py'],['config.yaml','Makefile']];
+const knowledgeNames = [['notes.md','data.csv'],['spec.md','glossary.txt'],['research.md','refs.txt'],['schema.sql','sample.json'],['outline.md','sources.txt']];
+
+function resetZip() {
+  clearTimeout(zipTimer);
+  document.getElementById('zipTree').innerHTML = '';
+}
+
+async function runZip() {
+  resetZip();
+  const numProj = parseInt(document.getElementById('zipProj').value);
+  const numChats = parseInt(document.getElementById('zipChats').value);
+  const numArts = parseInt(document.getElementById('zipArts').value);
+  const numFiles = parseInt(document.getElementById('zipFiles').value);
+  const numOrphans = parseInt(document.getElementById('zipOrphan').value);
+
+  const tree = document.getElementById('zipTree');
+  let entryCount = 0;
+
+  async function addEntry(indent, icon, name, cls, extraText='') {
+    const el = document.createElement('div');
+    el.className = 'zip-entry';
+    el.innerHTML = `<span class="tree-indent">${'&nbsp;&nbsp;'.repeat(indent)}</span>${icon} <span class="${cls}">${name}</span>${extraText ? `<span class="zip-size">${extraText}</span>` : ''}`;
+    tree.appendChild(el);
+    await sleep(10);
+    el.classList.add('visible');
+    await sleep(60 + Math.random() * 40);
+    entryCount++;
+  }
+
+  const multiProj = numProj > 1 || numOrphans > 0;
+  const zipName = numProj === 1
+    ? `claude-export-${projNames[0]}-2026-03-14.zip`
+    : `claude-export-all-2026-03-14.zip`;
+
+  await addEntry(0, '📦', zipName, 'zip-dir', `${numProj} project${numProj>1?'s':''}`);
+
+  if (multiProj) {
+    await addEntry(1, '📄', 'README.md', 'zip-file readme', 'root index');
+  }
+
+  for (let p = 0; p < numProj; p++) {
+    const pname = projNames[p % projNames.length];
+    await addEntry(1, '📁', pname + '/', 'zip-dir');
+    await addEntry(2, '📄', 'README.md', 'zip-file readme', 'project index');
+
+    if (numChats > 0) {
+      await addEntry(2, '📁', 'chats/', 'zip-dir');
+      for (let c = 0; c < numChats; c++) {
+        const cname = String(c+1).padStart(3,'0') + '-' + chatNames[c % chatNames.length] + '.md';
+        await addEntry(3, '💬', cname, 'zip-file chat');
+      }
+    }
+
+    if (numArts > 0 || numFiles > 0) {
+      await addEntry(2, '📁', 'files/', 'zip-dir');
+      if (numArts > 0) {
+        await addEntry(3, '📁', 'artifacts/', 'zip-dir');
+        const arts = artifactNames[p % artifactNames.length];
+        for (let a = 0; a < numArts; a++) {
+          await addEntry(4, '⚙️', arts[a % arts.length], 'zip-file artifact', 'extracted');
+        }
+      }
+      if (numFiles > 0) {
+        const kfiles = knowledgeNames[p % knowledgeNames.length];
+        for (let f = 0; f < numFiles; f++) {
+          await addEntry(3, '📝', kfiles[f % kfiles.length], 'zip-file knowledge', 'knowledge');
+        }
+      }
+    }
+  }
+
+  if (numOrphans > 0) {
+    await addEntry(1, '📁', '_no-project/', 'zip-dir');
+    await addEntry(2, '📁', 'chats/', 'zip-dir');
+    for (let o = 0; o < numOrphans; o++) {
+      const cname = String(o+1).padStart(3,'0') + '-Orphan-Chat-' + (o+1) + '.md';
+      await addEntry(3, '💬', cname, 'zip-file chat', 'orphan');
+    }
+  }
+
+  const totalFiles = (multiProj ? 1 : 0) + numProj * (1 + numChats + (numArts>0?numArts:0) + numFiles) + (numOrphans>0?numOrphans:0);
+  const summary = document.createElement('div');
+  summary.className = 'zip-entry';
+  summary.style.marginTop = '12px';
+  summary.style.color = 'var(--green)';
+  summary.style.fontSize = '12px';
+  summary.innerHTML = `✓ ${entryCount} entries added to ZIP`;
+  tree.appendChild(summary);
+  await sleep(10);
+  summary.classList.add('visible');
+}
+
+resetZip();
+
+// ═══════════════════════════════════════════════════════════════
+// SECTION 7: PROGRESS BAR
+// ═══════════════════════════════════════════════════════════════
+
+let progAnimTimer = null;
+
+function calcPct(step, mult) {
+  return Math.min(10 + step * mult, 90);
+}
+
+function updateProgDisplay(step, mult) {
+  const pct = calcPct(step, mult);
+  const trackW = 100; // percent
+  const fillPct = (pct / 100) * trackW;
+
+  document.getElementById('progFill').style.width = fillPct + '%';
+  document.getElementById('progDot').style.left = fillPct + '%';
+  document.getElementById('progPctShow').textContent = pct;
+  document.getElementById('progStepShow').textContent = step;
+
+  // Update dots
+  const maxSteps = 40;
+  const dotsEl = document.getElementById('progDots');
+  dotsEl.innerHTML = '';
+  const plateauStep = Math.ceil((90 - 10) / mult);
+  for (let i = 0; i <= maxSteps; i++) {
+    const d = document.createElement('div');
+    const p = calcPct(i, mult);
+    d.className = 'prog-step-dot';
+    if (i <= step) {
+      d.classList.add(i >= plateauStep ? 'plateau' : 'active');
+    }
+    d.textContent = p;
+    dotsEl.appendChild(d);
+  }
+}
+
+function updateProgMult(v) {
+  document.getElementById('progMultVal').textContent = v;
+  document.getElementById('progMultSliderVal').textContent = v;
+  const step = parseInt(document.getElementById('progStep').value);
+  updateProgDisplay(step, parseInt(v));
+}
+
+function updateProgStep(v) {
+  document.getElementById('progStepVal').textContent = v;
+  const mult = parseInt(document.getElementById('progMult').value);
+  updateProgDisplay(parseInt(v), mult);
+}
+
+function animateProgress() {
+  clearInterval(progAnimTimer);
+  document.getElementById('progStep').value = 0;
+  updateProgStep(0);
+  let step = 0;
+  progAnimTimer = setInterval(() => {
+    step++;
+    document.getElementById('progStep').value = step;
+    updateProgStep(step);
+    if (step >= 40) clearInterval(progAnimTimer);
+  }, 150);
+}
+
+function resetProgress() {
+  clearInterval(progAnimTimer);
+  document.getElementById('progStep').value = 0;
+  updateProgStep(0);
+}
+
+// Grid lines
+const grid = document.getElementById('progGrid');
+[90, 70, 50, 30, 10].forEach(pct => {
+  const line = document.createElement('div');
+  line.className = 'prog-gridline';
+  line.style.bottom = (pct / 100 * 160) + 'px';
+  grid.appendChild(line);
+});
+
+updateProgDisplay(0, 3);
+
+// ═══════════════════════════════════════════════════════════════
+// NAV ACTIVE STATE
+// ═══════════════════════════════════════════════════════════════
+const sections = ['pipeline','pagination','ratelimit','orphans','dedup','zip','progress'];
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
+      const link = document.querySelector(`nav a[href="#${e.target.id}"]`);
+      if (link) link.classList.add('active');
+    }
+  });
+}, { threshold: 0.3 });
+sections.forEach(id => {
+  const el = document.getElementById(id);
+  if (el) observer.observe(el);
+});
+</script>
+</body>
+</html>
